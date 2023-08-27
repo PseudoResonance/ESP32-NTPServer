@@ -27,10 +27,9 @@
   1.4  5  Sep 2014 - compatibility with Arduino 1.5.7
 */
 
-#if ARDUINO >= 100
 #include <Arduino.h>
-#else
-#include <WProgram.h>
+#ifdef ESP32
+uint64_t ICACHE_RAM_ATTR micros64() { return esp_timer_get_time(); }
 #endif
 
 #define TIMELIB_ENABLE_MILLIS
@@ -267,12 +266,12 @@ time_t makeTime(const struct tm *tm) {
 /*=====================================================*/
 /* Low level system time functions  */
 
-static uint32_t sysTime = 0;
-static uint32_t prevMicros = 0;
+static uint64_t sysTime = 0;
+static uint64_t prevMicros = 0;
 #ifdef usePPS
-static uint32_t ppsMicros = 0;
+static uint64_t ppsMicros = 0;
 #endif
-static uint32_t nextSyncTime = 0;
+static uint64_t nextSyncTime = 0;
 static timeStatus_t Status = timeNotSet;
 
 getExternalTime getTimePtr;	 // pointer to external sync function
@@ -284,7 +283,7 @@ time_t sysUnsyncedTime = 0;	 // the time sysTime unadjusted by sync
 
 #ifdef usePPS
 void IRAM_ATTR syncToPPS() {
-	ppsMicros = micros();
+	ppsMicros = micros64();
 }
 #endif
 
@@ -295,9 +294,9 @@ time_t now() {
 
 time_t now(uint32_t& sysTimeMicros) {
 #ifdef usePPS
-	uint32_t microsCall = micros() - (ppsMicros % 1000000); // align 1000000 micros with real life seconds
+	uint32_t microsCall = micros64() - (ppsMicros % 1000000); // align 1000000 micros with real life seconds
 #else
-	uint32_t microsCall = micros();
+	uint32_t microsCall = micros64();
 #endif
 	// calculate number of microseconds passed since last call to now()
 	uint32_t microsDiff = microsCall - prevMicros;
@@ -333,9 +332,9 @@ void setTime(time_t t) {
 	nextSyncTime = (uint32_t)t + syncInterval;
 	Status = timeSet;
 #ifdef usePPS	// restart counting from now (thanks to Korman for this fix)
-	prevMicros = micros() - (ppsMicros % 1000000);
+	prevMicros = micros64() - (ppsMicros % 1000000);
 #else
-	prevMicros = micros();
+	prevMicros = micros64();
 #endif
 }
 
